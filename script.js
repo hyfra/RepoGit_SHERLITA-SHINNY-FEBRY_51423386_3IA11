@@ -22,7 +22,7 @@ let formData = {
 // INITIALIZATION
 // ===========================
 function loadData() {
-    const saved = localStorage.getItem('hyfraSplitBills');
+    const saved = localStorage.getItem('gojekSplitBills');
     if (saved) {
         bills = JSON.parse(saved);
     }
@@ -30,7 +30,7 @@ function loadData() {
 }
 
 function saveData() {
-    localStorage.setItem('hyfraSplitBills', JSON.stringify(bills));
+    localStorage.setItem('gojekSplitBills', JSON.stringify(bills));
 }
 
 document.addEventListener('DOMContentLoaded', loadData);
@@ -107,46 +107,84 @@ function toggleItemShare(itemIndex, participant) {
 // CALCULATION
 // ===========================
 function calculateBill() {
-    const validParticipants = formData.participants.filter(p => p.trim() !== '');
-    const validItems = formData.items.filter(item => 
-        item.name.trim() && item.price && parseFloat(item.price) > 0
+    const validParticipants = formData.participants.filter(
+        p => p.trim() !== ''
     );
-    
-    const subtotal = validItems.reduce((sum, item) => sum + parseFloat(item.price), 0);
-    const taxAmount = formData.useTax ? (subtotal * formData.taxPercent / 100) : 0;
-    const serviceAmount = formData.useService ? (subtotal * formData.servicePercent / 100) : 0;
+
+    const validItems = formData.items.filter(
+        item =>
+            item.name.trim() &&
+            item.price &&
+            parseFloat(item.price) > 0
+    );
+
+    const subtotal = validItems.reduce(
+        (sum, item) => sum + parseFloat(item.price),
+        0
+    );
+
+    const taxAmount = formData.useTax
+        ? (subtotal * formData.taxPercent) / 100
+        : 0;
+
+    const serviceAmount = formData.useService
+        ? (subtotal * formData.servicePercent) / 100
+        : 0;
+
     const total = subtotal + taxAmount + serviceAmount;
-    
+
     const splits = {};
     validParticipants.forEach(p => {
-        splits[p] = { items: [], subtotal: 0, tax: 0, service: 0, total: 0, paid: false };
+        splits[p] = {
+            items: [],
+            subtotal: 0,
+            tax: 0,
+            service: 0,
+            total: 0,
+            paid: false
+        };
     });
-    
+
     validItems.forEach(item => {
         const itemPrice = parseFloat(item.price);
-        // PERUBAHAN: Tidak dibagi, setiap orang bayar full price
-        const pricePerPerson = itemPrice; // Setiap orang bayar harga penuh
-        
+        const shareCount = item.sharedBy.length || 1;
+        const pricePerPerson = itemPrice / shareCount;
+
         item.sharedBy.forEach(person => {
             if (splits[person]) {
                 splits[person].items.push({
                     name: item.name,
                     price: pricePerPerson,
-                    shared: item.sharedBy.length > 1
+                    shared: shareCount > 1
                 });
+
                 splits[person].subtotal += pricePerPerson;
             }
         });
     });
-    
+
     validParticipants.forEach(p => {
         const personSubtotal = splits[p].subtotal;
-        splits[p].tax = formData.useTax ? (personSubtotal * formData.taxPercent / 100) : 0;
-        splits[p].service = formData.useService ? (personSubtotal * formData.servicePercent / 100) : 0;
-        splits[p].total = personSubtotal + splits[p].tax + splits[p].service;
+
+        splits[p].tax = formData.useTax
+            ? (personSubtotal * formData.taxPercent) / 100
+            : 0;
+
+        splits[p].service = formData.useService
+            ? (personSubtotal * formData.servicePercent) / 100
+            : 0;
+
+        splits[p].total =
+            personSubtotal + splits[p].tax + splits[p].service;
     });
-    
-    return { splits, subtotal, taxAmount, serviceAmount, total };
+
+    return {
+        splits,
+        subtotal,
+        taxAmount,
+        serviceAmount,
+        total
+    };
 }
 
 // ===========================
@@ -158,7 +196,10 @@ function handleSubmit() {
     );
 
     const validItems = formData.items.filter(
-        item => item.name.trim() && item.price && parseFloat(item.price) > 0
+        item =>
+            item.name.trim() &&
+            item.price &&
+            parseFloat(item.price) > 0
     );
 
     if (!formData.billName.trim()) {
@@ -215,6 +256,26 @@ function handleSubmit() {
     resetForm();
     saveData();
     render();
+}
+
+// ===========================
+// EVENT LISTENERS
+// ===========================
+function attachEventListeners() {
+    const billNameInput = document.getElementById('billName');
+    const dateInput = document.getElementById('date');
+
+    if (billNameInput) {
+        billNameInput.addEventListener('input', e => {
+            formData.billName = e.target.value;
+        });
+    }
+
+    if (dateInput) {
+        dateInput.addEventListener('change', e => {
+            formData.date = e.target.value;
+        });
+    }
 }
 
 function resetForm() {
@@ -284,9 +345,7 @@ function togglePaid(billId, participant) {
 }
 
 function getTotalPaid(bill) {
-    return Object.values(bill.splits).filter(
-        s => s.paid
-    ).length;
+    return Object.values(bill.splits).filter(s => s.paid).length;
 }
 
 // ===========================
@@ -311,7 +370,10 @@ function nextStep() {
 
     if (currentStep === 2) {
         const validItems = formData.items.filter(
-            item => item.name.trim() && item.price && parseFloat(item.price) > 0
+            item =>
+                item.name.trim() &&
+                item.price &&
+                parseFloat(item.price) > 0
         );
 
         if (validItems.length === 0) {
@@ -350,26 +412,6 @@ function formatDate(dateString) {
         month: 'long',
         year: 'numeric'
     });
-}
-
-// ===========================
-// EVENT LISTENERS
-// ===========================
-function attachEventListeners() {
-    const billNameInput = document.getElementById('billName');
-    const dateInput = document.getElementById('date');
-
-    if (billNameInput) {
-        billNameInput.addEventListener('input', e => {
-            formData.billName = e.target.value;
-        });
-    }
-
-    if (dateInput) {
-        dateInput.addEventListener('change', e => {
-            formData.date = e.target.value;
-        });
-    }
 }
 
 // ===========================
@@ -855,49 +897,85 @@ function renderParticipantSplit(bill, participant) {
 }
 
 function renderStep3() {
-    const validParticipants = formData.participants.filter(p => p.trim());
-    
+    const validItems = formData.items.filter(
+        item => item.name.trim() && item.price
+    );
+
+    const validParticipants = formData.participants.filter(
+        p => p.trim()
+    );
+
     return `
         <div class="alert alert-warning">
-            <p><strong>📋 Pilih peserta untuk setiap menu.</strong> Setiap orang yang dipilih akan membayar harga penuh item tersebut.</p>
+            <p>
+                <strong>📋 Pilih peserta untuk setiap menu.</strong>
+                Jika menu dibagi beberapa orang, centang semua yang ikut.
+            </p>
         </div>
-        
-        ${formData.items
-            .map((item, itemIndex) => {
-                // Hanya tampilkan item yang sudah diisi
-                if (!item.name.trim() || !item.price) return '';
-                
-                return `
-                    <div class="item-card">
-                        <div class="item-header">
-                            <div>
-                                <p class="item-name">${item.name}</p>
-                                <p class="item-price">Rp ${parseFloat(item.price).toLocaleString('id-ID')} / orang</p>
-                            </div>
-                            ${item.sharedBy.length > 0 ? `
-                                <span class="item-badge">${item.sharedBy.length} orang</span>
-                            ` : ''}
-                        </div>
-                        <div class="participant-chips">
-                            ${validParticipants.map(participant => `
-                                <button 
-                                    class="chip ${item.sharedBy.includes(participant) ? 'selected' : ''}"
-                                    onclick="toggleItemShare(${itemIndex}, '${participant}')"
-                                >
-                                    ${item.sharedBy.includes(participant) ? '✓ ' : ''}${participant}
-                                </button>
-                            `).join('')}
-                        </div>
+
+        ${validItems
+            .map(
+                (item, itemIndex) => `
+            <div class="item-card">
+                <div class="item-header">
+                    <div>
+                        <p class="item-name">${item.name}</p>
+                        <p class="item-price">
+                            Rp ${parseFloat(item.price).toLocaleString('id-ID')}
+                        </p>
                     </div>
-                `;
-            })
+                    ${
+                        item.sharedBy.length > 0
+                            ? `
+                    <span class="item-badge">
+                        ${item.sharedBy.length} orang
+                    </span>
+                    `
+                            : ''
+                    }
+                </div>
+
+                <div class="participant-chips">
+                    ${validParticipants
+                        .map(
+                            participant => `
+                        <button
+                            class="chip ${
+                                item.sharedBy.includes(participant)
+                                    ? 'selected'
+                                    : ''
+                            }"
+                            onclick="toggleItemShare(${itemIndex}, '${participant}')"
+                        >
+                            ${
+                                item.sharedBy.includes(participant)
+                                    ? '✓ '
+                                    : ''
+                            }${participant}
+                        </button>
+                    `
+                        )
+                        .join('')}
+                </div>
+            </div>
+        `
+            )
             .join('')}
-        
+
         <div style="display: flex; gap: 15px; margin-top: 20px;">
-            <button class="btn-secondary" onclick="prevStep()" style="flex: 1;">
+            <button
+                class="btn-secondary"
+                onclick="prevStep()"
+                style="flex: 1;"
+            >
                 Kembali
             </button>
-            <button class="btn-primary" onclick="nextStep()" style="flex: 1;">
+
+            <button
+                class="btn-primary"
+                onclick="nextStep()"
+                style="flex: 1;"
+            >
                 Lanjut ke Pajak
             </button>
         </div>
